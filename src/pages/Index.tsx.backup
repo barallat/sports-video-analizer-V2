@@ -1,0 +1,408 @@
+import { useState, useEffect } from 'react';
+import { LoginForm } from '@/components/LoginForm';
+import { Dashboard } from '@/components/Dashboard';
+import { ConfigSection } from '@/components/ConfigSection';
+import { SportsConfig } from '@/components/SportsConfig';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { Loader2 } from 'lucide-react';
+import { SportsSelectionView } from '@/components/SportsSelectionView';
+import { SportTeamsView } from '@/components/SportTeamsView';
+import { TeamPlayersView } from '@/components/TeamPlayersView';
+import { PlayerFormView } from '@/components/PlayerFormView';
+import { NewAnalysisView } from '@/components/NewAnalysisView';
+import { AnalysisResultsView } from '@/components/AnalysisResultsView';
+import { ResultsView } from '@/components/ResultsView';
+import { StatisticsView } from '@/components/StatisticsView';
+import { AnalysisDetailsView } from '@/components/AnalysisDetailsView';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { SportsManagement } from '@/components/SportsManagement';
+import { useSportConfigContext } from '@/contexts/SportConfigContext';
+
+const Index = () => {
+  const { user, loading: authLoading, signOut } = useAuth();
+  const { t } = useLanguage();
+  const { features, database } = useSportConfigContext();
+  const [currentSection, setCurrentSection] = useState('dashboard');
+  const [userHasSports, setUserHasSports] = useState(false);
+  const [checkingUser, setCheckingUser] = useState(true);
+  const [userName, setUserName] = useState('Usuario');
+  
+  // Nuevos estados para la navegación por deportes y equipos
+  const [selectedSport, setSelectedSport] = useState<any>(null);
+  const [selectedTeam, setSelectedTeam] = useState<{ id: string; name: string; deporteId: string } | null>(null);
+  const [editingPlayer, setEditingPlayer] = useState<string | undefined>(undefined);
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (user) {
+      console.log('User logged in:', user.id);
+      checkUserSportsConfig();
+      getUserName();
+    } else {
+      console.log('No user found');
+      setCheckingUser(false);
+    }
+  }, [user]);
+
+  const getUserName = async () => {
+    if (!user) return;
+
+    try {
+      console.log('Getting user name for:', user.id);
+      const { data: userData, error } = await supabase
+        .from('usuarios')
+        .select('nombre')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error getting user name:', error);
+        return;
+      }
+
+      if (userData?.nombre) {
+        console.log('User name found:', userData.nombre);
+        setUserName(userData.nombre);
+      } else {
+        console.log('No user data found, using default name');
+      }
+    } catch (error) {
+      console.error('Exception getting user name:', error);
+    }
+  };
+
+  const checkUserSportsConfig = async () => {
+    if (!user) return;
+
+    try {
+      console.log('Checking user sports config for:', user.id);
+      const { data: userData, error: userError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      if (userError) {
+        console.error('Error getting user:', userError);
+        setCheckingUser(false);
+        return;
+      }
+
+      if (userData) {
+        console.log('User found, checking sports:', userData.id);
+        const { data: userSports, error: sportsError } = await supabase
+          .from('usuario_deportes')
+          .select('*')
+          .eq('usuario_id', userData.id);
+
+        if (sportsError) {
+          console.error('Error checking user sports:', sportsError);
+        } else {
+          console.log('User sports count:', userSports?.length || 0);
+          if (features.skipSportsConfig) {
+            const hasConfiguredSport = userSports?.some(us => us.deporte_id === database.sportFilter);
+            setUserHasSports(hasConfiguredSport || false);
+          } else {
+            setUserHasSports((userSports?.length || 0) > 0);
+          }
+        }
+      } else {
+        console.log('No user data found in usuarios table');
+        setUserHasSports(false);
+      }
+    } catch (error) {
+      console.error('Exception checking user sports:', error);
+    }
+    
+    setCheckingUser(false);
+  };
+
+  const handleNavigate = (section: string) => {
+    console.log('Navigating to section:', section);
+    if (section === 'sport-teams' && features.skipSportsConfig && database.sportFilter !== 'all') {
+      loadConfiguredSport();
+    }
+    setCurrentSection(section);
+  };
+
+  const loadConfiguredSport = async () => {
+    try {
+      // Solo cargar deporte específico si no estamos en modo multideporte
+      if (database.sportFilter !== 'all') {
+        const { data: deporte } = await supabase
+          .from('deportes')
+          .select('*')
+          .eq('id', database.sportFilter)
+          .single();
+
+        if (deporte) {
+          setSelectedSport(deporte);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading configured sport:', error);
+    }
+  };
+
+  const handleConfigNavigate = (section: string) => {
+    console.log('Config navigation to:', section);
+    if (section === 'sports-management') {
+      setCurrentSection('sports-management');
+    } else {
+      console.log('Config section not implemented yet:', section);
+    }
+  };
+
+  const handleBack = () => {
+    console.log('Going back to dashboard');
+    setCurrentSection('dashboard');
+  };
+
+  const handleSportsConfigComplete = () => {
+    console.log('Sports config completed');
+    setUserHasSports(true);
+    setCurrentSection('dashboard');
+  };
+
+  const handleLogout = async () => {
+    try {
+      console.log('Logging out user');
+      await signOut();
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
+  };
+
+  const handleSportSelect = (deporte: any) => {
+    console.log('Sport selected:', deporte);
+    setSelectedSport(deporte);
+    setCurrentSection('sport-teams');
+  };
+
+  const handleTeamSelect = (teamId: string, teamName: string) => {
+    console.log('Team selected:', teamId, teamName);
+    if (!selectedSport) return;
+    
+    setSelectedTeam({ 
+      id: teamId, 
+      name: teamName, 
+      deporteId: selectedSport.id 
+    });
+    setCurrentSection('team-players');
+  };
+
+  const handleBackFromSportTeams = () => {
+    setSelectedSport(null);
+    if (features.skipSportsConfig) {
+      setCurrentSection('dashboard');
+    } else {
+      setCurrentSection('teams');
+    }
+  };
+
+  const handleBackFromTeamPlayers = () => {
+    setSelectedTeam(null);
+    setCurrentSection('sport-teams');
+  };
+
+  const handleBackFromSportsSelection = () => {
+    setCurrentSection('dashboard');
+  };
+
+  const handleBackFromNewAnalysis = () => {
+    setCurrentSection('dashboard');
+  };
+
+  const handleBackFromResults = () => {
+    setCurrentSection('dashboard');
+  };
+
+  const handleBackFromStats = () => {
+    setCurrentSection('dashboard');
+  };
+
+  const handlePlayerForm = (playerId?: string) => {
+    setEditingPlayer(playerId);
+    setCurrentSection('player-form');
+  };
+
+  const handleBackFromPlayerForm = () => {
+    setEditingPlayer(undefined);
+    setCurrentSection('team-players');
+  };
+
+  const handlePlayerSaved = () => {
+    setEditingPlayer(undefined);
+    setCurrentSection('team-players');
+  };
+
+  const handleViewAnalysis = (analysisId: string) => {
+    setSelectedAnalysisId(analysisId);
+    setCurrentSection('analysis-details');
+  };
+
+  const handleBackFromAnalysisDetails = () => {
+    setSelectedAnalysisId(undefined);
+    setCurrentSection('results');
+  };
+
+  const handleBackFromSportsManagement = () => {
+    setCurrentSection('dashboard');
+  };
+
+  const handleAnalysisComplete = (analysisId: string) => {
+    setSelectedAnalysisId(analysisId);
+    setCurrentSection('analysis-results');
+  };
+
+  const handleBackFromAnalysisResults = () => {
+    setSelectedAnalysisId(undefined);
+    setCurrentSection('dashboard');
+  };
+
+  if (authLoading || checkingUser) {
+    console.log('Loading state - authLoading:', authLoading, 'checkingUser:', checkingUser);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+          <p className="text-muted-foreground">{t('loading')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    console.log('No user, showing login form');
+    return <LoginForm />;
+  }
+
+  if (!userHasSports) {
+    console.log('User has no sports, showing sports config');
+    return <SportsConfig onComplete={handleSportsConfigComplete} />;
+  }
+
+  console.log('Rendering section:', currentSection);
+
+  switch (currentSection) {
+    case 'config':
+      return <ConfigSection onBack={handleBack} onNavigate={handleConfigNavigate} userName={userName} onLogout={handleLogout} />;
+    case 'sports-management':
+      return (
+        <SportsManagement 
+          onBack={handleBackFromSportsManagement}
+          userName={userName}
+          onLogout={handleLogout}
+        />
+      );
+    case 'teams':
+      return (
+        <SportsSelectionView 
+          onBack={handleBackFromSportsSelection} 
+          onSportSelect={handleSportSelect}
+          userName={userName}
+          onLogout={handleLogout}
+        />
+      );
+    case 'sports-selection':
+      return (
+        <SportsSelectionView 
+          onBack={handleBackFromSportsSelection} 
+          onSportSelect={handleSportSelect}
+          userName={userName}
+          onLogout={handleLogout}
+        />
+      );
+    case 'sport-teams':
+      return selectedSport ? (
+        <SportTeamsView 
+          deporte={selectedSport} 
+          onBack={handleBackFromSportTeams}
+          onTeamSelect={handleTeamSelect}
+          userName={userName}
+          onLogout={handleLogout}
+        />
+      ) : null;
+    case 'team-players':
+      return selectedTeam ? (
+        <TeamPlayersView 
+          teamId={selectedTeam.id}
+          teamName={selectedTeam.name}
+          deporteId={selectedTeam.deporteId}
+          deporteName={selectedSport?.nombre}
+          onBack={handleBackFromTeamPlayers}
+          onPlayerForm={handlePlayerForm}
+          userName={userName}
+          onLogout={handleLogout}
+        />
+      ) : null;
+    case 'player-form':
+      return selectedTeam ? (
+        <PlayerFormView
+          teamId={selectedTeam.id}
+          teamName={selectedTeam.name}
+          deporteId={selectedTeam.deporteId}
+          playerId={editingPlayer}
+          onBack={handleBackFromPlayerForm}
+          onSaved={handlePlayerSaved}
+          userName={userName}
+          onLogout={handleLogout}
+        />
+      ) : null;
+    case 'analysis':
+      return (
+        <NewAnalysisView 
+          onBack={handleBackFromNewAnalysis}
+          onAnalysisComplete={handleAnalysisComplete}
+          userName={userName}
+          onLogout={handleLogout}
+        />
+      );
+    case 'analysis-results':
+      return selectedAnalysisId ? (
+        <AnalysisResultsView 
+          analysisId={selectedAnalysisId}
+          onBack={handleBackFromAnalysisResults}
+          userName={userName}
+          onLogout={handleLogout}
+        />
+      ) : null;
+    case 'results':
+      return (
+        <ResultsView 
+          onBack={handleBackFromResults} 
+          onViewAnalysis={handleViewAnalysis}
+          userName={userName}
+          onLogout={handleLogout}
+        />
+      );
+    case 'analysis-details':
+      return selectedAnalysisId ? (
+        <AnalysisDetailsView 
+          analysisId={selectedAnalysisId}
+          onBack={handleBackFromAnalysisDetails}
+          userName={userName}
+          onLogout={handleLogout}
+        />
+      ) : null;
+    case 'statistics':
+      return (
+        <StatisticsView 
+          onBack={handleBackFromStats}
+          userName={userName}
+          onLogout={handleLogout}
+        />
+      );
+    default:
+      return (
+        <Dashboard 
+          userName={userName}
+          onNavigate={handleNavigate}
+          onLogout={handleLogout}
+        />
+      );
+  }
+};
+
+export default Index;

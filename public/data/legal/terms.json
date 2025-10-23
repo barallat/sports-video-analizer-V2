@@ -1,0 +1,119 @@
+{
+  "title": "Términos y Condiciones",
+  "lastUpdated": "7 de octubre de 2025",
+  "sections": [
+    {
+      "id": "acceptance",
+      "title": "1. Aceptación de los Términos",
+      "content": "Al acceder y utilizar {{APP_NAME}}, aceptas estar sujeto a estos Términos y Condiciones de uso. Si no estás de acuerdo con alguna parte de estos términos, no debes utilizar nuestra plataforma."
+    },
+    {
+      "id": "company-data",
+      "title": "2. Datos del Titular (Aviso Legal)",
+      "content": "En cumplimiento del artículo 10 de la Ley 34/2002, de 11 de julio, de Servicios de la Sociedad de la Información y del Comercio Electrónico (LSSI-CE), se informa que:",
+      "list": [
+        {
+          "label": "Titular:",
+          "value": "META UBIQUITY S.L."
+        },
+        {
+          "label": "CIF:",
+          "value": "B22953822"
+        },
+        {
+          "label": "Domicilio social:",
+          "value": "Calle Núñez de Balboa 120, 28006 Madrid, España"
+        },
+        {
+          "label": "Correo electrónico:",
+          "value": "legal@metaubiquity.es"
+        },
+        {
+          "label": "Teléfono:",
+          "value": "+34 900 123 456"
+        }
+      ]
+    },
+    {
+      "id": "service-description",
+      "title": "3. Descripción del Servicio",
+      "content": "{{APP_NAME}} es una plataforma que proporciona servicios digitales a nuestros usuarios, facilitando la gestión y organización de actividades relacionadas con nuestros servicios."
+    },
+    {
+      "id": "user-registration",
+      "title": "4. Registro y Cuenta de Usuario",
+      "content": "Para utilizar ciertas funciones de la plataforma, debes registrarte y crear una cuenta. Al hacerlo, te comprometes a:",
+      "list": [
+        "Proporcionar información veraz, precisa y actualizada.",
+        "Mantener la confidencialidad de tus credenciales.",
+        "Ser responsable de todas las actividades realizadas desde tu cuenta.",
+        "Notificar de inmediato cualquier uso no autorizado."
+      ]
+    },
+    {
+      "id": "acceptable-use",
+      "title": "5. Uso Aceptable",
+      "content": "Te comprometes a no:",
+      "list": [
+        "Violar leyes o regulaciones aplicables.",
+        "Publicar contenido ofensivo, difamatorio o inapropiado.",
+        "Acosar, amenazar o intimidar a otros usuarios.",
+        "Intentar acceder sin autorización a otras cuentas o sistemas.",
+        "Utilizar la plataforma para actividades comerciales no autorizadas.",
+        "Suplantar la identidad de otras personas o entidades."
+      ]
+    },
+    {
+      "id": "user-content",
+      "title": "6. Contenido del Usuario",
+      "content": "Eres responsable del contenido que publiques en {{APP_NAME}}. Al publicar contenido, otorgas a {{COMPANY_NAME}} una licencia no exclusiva, mundial, gratuita y sublicenciable para usar, reproducir y distribuir dicho contenido en relación con el funcionamiento y promoción del servicio."
+    },
+    {
+      "id": "intellectual-property",
+      "title": "7. Propiedad Intelectual",
+      "content": "Todo el contenido, marcas, logos y material en {{APP_NAME}} son propiedad de {{COMPANY_NAME}} o de sus licenciantes y están protegidos por las leyes de propiedad intelectual e industrial."
+    },
+    {
+      "id": "free-paid-services",
+      "title": "8. Servicios Gratuitos y de Pago",
+      "content": "Actualmente, el acceso y uso de {{APP_NAME}} son gratuitos para los usuarios.",
+      "additionalContent": [
+        "No obstante, {{COMPANY_NAME}} se reserva el derecho a ofrecer en el futuro servicios o funcionalidades adicionales de carácter premium o de pago, así como planes específicos para empresas, locales o anunciantes.",
+        "En tal caso, se informará de forma clara y previa sobre las condiciones aplicables, precios y modalidades de pago antes de que el usuario contrate dichos servicios."
+      ]
+    },
+    {
+      "id": "liability-limitation",
+      "title": "9. Limitación de Responsabilidad",
+      "content": "{{APP_NAME}} se proporciona \"tal cual\", sin garantías de ningún tipo. {{COMPANY_NAME}} no será responsable de daños indirectos, incidentales o consecuentes derivados del uso o imposibilidad de uso de la plataforma."
+    },
+    {
+      "id": "external-links",
+      "title": "10. Enlaces Externos",
+      "content": "La plataforma puede contener enlaces a sitios de terceros. {{COMPANY_NAME}} no se hace responsable del contenido ni de las políticas de privacidad de dichos sitios."
+    },
+    {
+      "id": "modifications",
+      "title": "11. Modificaciones",
+      "content": "{{COMPANY_NAME}} se reserva el derecho de modificar estos términos en cualquier momento. Los cambios entrarán en vigor inmediatamente después de su publicación en la plataforma."
+    },
+    {
+      "id": "termination",
+      "title": "12. Terminación",
+      "content": "Podremos suspender o cancelar tu cuenta sin previo aviso si incumples estos términos o realizas actividades que puedan perjudicar a la plataforma o a otros usuarios."
+    },
+    {
+      "id": "legislation-jurisdiction",
+      "title": "13. Legislación y Jurisdicción",
+      "content": "La relación entre {{COMPANY_NAME}} y el usuario se regirá por la legislación española.",
+      "additionalContent": [
+        "Cualquier controversia se someterá a los Juzgados y Tribunales de Madrid capital, con renuncia expresa a cualquier otro fuero."
+      ]
+    },
+    {
+      "id": "contact",
+      "title": "14. Contacto",
+      "content": "Para cualquier consulta relacionada con estos Términos y Condiciones, puedes escribir a: legal@metaubiquity.es"
+    }
+  ]
+}

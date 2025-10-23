@@ -1,0 +1,512 @@
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ArrowLeft, Save } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { AppHeader } from '@/components/AppHeader';
+import { AppFooter } from '@/components/AppFooter';
+
+interface Posicion {
+  id: string;
+  nombre: string;
+  descripcion: string;
+}
+
+interface Equipo {
+  id: string;
+  nombre: string;
+}
+
+interface PlayerFormViewProps {
+  teamId: string;
+  teamName: string;
+  deporteId: string;
+  playerId?: string;
+  onBack: () => void;
+  onSaved: () => void;
+  userName?: string;
+  onLogout?: () => Promise<void>;
+  isAthletesMode?: boolean;
+  title?: string;
+}
+
+export function PlayerFormView({ 
+  teamId, 
+  teamName, 
+  deporteId, 
+  playerId, 
+  onBack, 
+  onSaved, 
+  userName, 
+  onLogout,
+  isAthletesMode = false,
+  title
+}: PlayerFormViewProps) {
+  const [posiciones, setPosiciones] = useState<Posicion[]>([]);
+  const [equipos, setEquipos] = useState<Equipo[]>([]);
+  const [playerName, setPlayerName] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [height, setHeight] = useState('');
+  const [weight, setWeight] = useState('');
+  const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [defaultTeamId, setDefaultTeamId] = useState<string>('');
+  const { toast } = useToast();
+  const { t } = useLanguage();
+
+  useEffect(() => {
+    loadPosiciones();
+    loadEquipos();
+    if (isAthletesMode && !teamId) {
+      loadDefaultTeam();
+    } else {
+      if (playerId) {
+        loadPlayerData();
+      } else {
+        setLoading(false);
+      }
+    }
+  }, [teamId, deporteId, playerId, isAthletesMode]);
+
+  const loadDefaultTeam = async () => {
+    try {
+      // En modo deportistas, necesitamos encontrar o crear un equipo por defecto
+      const { data: userData } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_user_id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (userData) {
+        // Buscar si ya existe un equipo por defecto para este deporte
+        let { data: existingTeam } = await supabase
+          .from('equipos')
+          .select('id')
+          .eq('usuario_id', userData.id)
+          .eq('deporte_id', deporteId)
+          .eq('nombre', 'Deportistas')
+          .single();
+
+        if (!existingTeam) {
+          // Crear equipo por defecto
+          const { data: newTeam } = await supabase
+            .from('equipos')
+            .insert({
+              nombre: 'Deportistas',
+              descripcion: 'Equipo por defecto para deportistas individuales',
+              usuario_id: userData.id,
+              deporte_id: deporteId
+            })
+            .select()
+            .single();
+
+          if (newTeam) {
+            existingTeam = newTeam;
+          }
+        }
+
+        if (existingTeam) {
+          setDefaultTeamId(existingTeam.id);
+        }
+      }
+
+      if (playerId) {
+        loadPlayerData();
+      } else {
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('Error loading default team:', error);
+      setLoading(false);
+    }
+  };
+
+  const loadPosiciones = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('posiciones')
+        .select('id, nombre, descripcion')
+        .eq('deporte_id', deporteId)
+        .order('nombre');
+
+      if (error) {
+        console.error('Error loading positions:', error);
+        return;
+      }
+
+      setPosiciones(data || []);
+    } catch (error) {
+      console.error('Error loading positions:', error);
+    }
+  };
+
+  const loadEquipos = async () => {
+    if (!playerId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('jugador_equipos')
+        .select(`
+          equipos!inner(
+            id,
+            nombre
+          )
+        `)
+        .eq('jugador_id', playerId);
+
+      if (error) {
+        console.error('Error loading teams:', error);
+        return;
+      }
+
+      const equiposData = data?.map(item => item.equipos).filter(Boolean) || [];
+      setEquipos(equiposData);
+    } catch (error) {
+      console.error('Error loading teams:', error);
+    }
+  };
+
+  const loadPlayerData = async () => {
+    try {
+      const { data: playerData, error } = await supabase
+        .from('jugadores')
+        .select('*')
+        .eq('id', playerId)
+        .single();
+
+      if (error || !playerData) {
+        console.error('Error loading player:', error);
+        return;
+      }
+
+      setPlayerName(playerData.nombre || '');
+      setBirthDate(playerData.fecha_nacimiento || '');
+      setHeight(playerData.altura?.toString() || '');
+      setWeight(playerData.peso?.toString() || '');
+
+      // Load player positions
+      const { data: playerPositions } = await supabase
+        .from('jugador_posiciones')
+        .select('posicion_id')
+        .eq('jugador_id', playerId);
+
+      if (!playerPositions) {
+        return;
+      }
+
+      setSelectedPositions(playerPositions?.map(item => item.posicion_id) || []);
+    } catch (error) {
+      console.error('Error loading player:', error);
+    }
+    setLoading(false);
+  };
+
+  const handleSavePlayer = async () => {
+    if (!playerName) {
+      toast({
+        variant: "destructive",
+        title: t('error'),
+        description: isAthletesMode ? 'El nombre del deportista es obligatorio' : 'El nombre del jugador es obligatorio'
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      let currentPlayerId: string;
+      const finalTeamId = isAthletesMode ? defaultTeamId : teamId;
+
+      if (!finalTeamId) {
+        throw new Error('No se pudo determinar el equipo');
+      }
+
+      if (playerId) {
+        // Update existing player
+        const { error: updateError } = await supabase
+          .from('jugadores')
+          .update({
+            nombre: playerName,
+            fecha_nacimiento: birthDate || null,
+            altura: height ? parseFloat(height) : null,
+            peso: weight ? parseFloat(weight) : null
+          })
+          .eq('id', playerId);
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        currentPlayerId = playerId;
+
+        // Delete existing positions
+        const { error: deleteError } = await supabase
+          .from('jugador_posiciones')
+          .delete()
+          .eq('jugador_id', playerId);
+
+        if (deleteError) {
+          throw deleteError;
+        }
+      } else {
+        // Create new player
+        const { data: newPlayer, error: insertError } = await supabase
+          .from('jugadores')
+          .insert({
+            nombre: playerName,
+            fecha_nacimiento: birthDate || null,
+            altura: height ? parseFloat(height) : null,
+            peso: weight ? parseFloat(weight) : null
+          })
+          .select()
+          .single();
+
+        if (insertError || !newPlayer) {
+          throw insertError || new Error('Error creating player');
+        }
+        currentPlayerId = newPlayer.id;
+
+        // Add to team
+        const { error: teamError } = await supabase
+          .from('jugador_equipos')
+          .insert({
+            jugador_id: currentPlayerId,
+            equipo_id: finalTeamId
+          });
+
+        if (teamError) {
+          throw teamError;
+        }
+      }
+
+      // Insert new positions
+      if (selectedPositions.length > 0) {
+        const posicionesData = selectedPositions.map(posicionId => ({
+          jugador_id: currentPlayerId,
+          posicion_id: posicionId
+        }));
+
+        const { error: positionsError } = await supabase
+          .from('jugador_posiciones')
+          .insert(posicionesData);
+
+        if (positionsError) {
+          throw positionsError;
+        }
+      }
+
+      toast({
+        title: playerId 
+          ? (isAthletesMode ? 'Deportista actualizado' : t('playerUpdated'))
+          : (isAthletesMode ? 'Deportista creado' : t('playerCreated')),
+        description: playerId 
+          ? (isAthletesMode ? 'Los datos del deportista han sido actualizados' : t('playerUpdatedDescription'))
+          : (isAthletesMode ? 'El nuevo deportista ha sido añadido correctamente' : t('playerCreatedDescription'))
+      });
+
+      onSaved();
+    } catch (error) {
+      console.error('Error saving player:', error);
+      toast({
+        variant: "destructive",
+        title: t('error'),
+        description: isAthletesMode ? 'No se pudo guardar el deportista' : t('couldNotSavePlayer')
+      });
+    }
+    setSaving(false);
+  };
+
+  const togglePosition = (posicionId: string) => {
+    setSelectedPositions(prev => 
+      prev.includes(posicionId) 
+        ? prev.filter(id => id !== posicionId)
+        : [...prev, posicionId]
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 flex flex-col">
+        <AppHeader userName={userName} onLogout={onLogout} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"></div>
+            <p className="text-muted-foreground">{t('loading')}</p>
+          </div>
+        </div>
+        <AppFooter />
+      </div>
+    );
+  }
+
+  const displayTitle = title || (playerId 
+    ? (isAthletesMode ? 'Editar Deportista' : `${t('editPlayer')} - ${teamName}`)
+    : (isAthletesMode ? 'Nuevo Deportista' : `${t('newPlayer')} - ${teamName}`)
+  );
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 flex flex-col">
+      <AppHeader userName={userName} onLogout={onLogout} />
+
+      <div className="flex-1 max-w-4xl mx-auto py-8 px-4">
+        <div className="flex items-center gap-4 mb-8">
+          <Button variant="ghost" onClick={onBack} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            {t('back')}
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">{displayTitle}</h1>
+            <p className="text-muted-foreground">
+              {isAthletesMode 
+                ? 'Completa los datos del deportista'
+                : `${t('fillPlayerData')} ${teamName}`
+              }
+            </p>
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {isAthletesMode ? 'Información del Deportista' : t('playerInformation')}
+            </CardTitle>
+            <CardDescription>
+              {isAthletesMode 
+                ? 'Ingresa los datos básicos del deportista'
+                : t('enterBasicPlayerData')
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="playerName">
+                  {isAthletesMode ? 'Nombre del deportista' : t('playerName')} *
+                </Label>
+                <Input
+                  id="playerName"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  placeholder={isAthletesMode ? 'Ingresa el nombre del deportista' : t('enterPlayerName')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="birthDate">{t('birthDate')}</Label>
+                <Input
+                  id="birthDate"
+                  type="date"
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="height">{t('height')} (cm)</Label>
+                <Input
+                  id="height"
+                  type="number"
+                  value={height}
+                  onChange={(e) => setHeight(e.target.value)}
+                  placeholder="175"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="weight">{t('weight')} (kg)</Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
+                  placeholder="70"
+                />
+              </div>
+            </div>
+
+            {/* Bloque de Equipos - Solo visible cuando se edita un deportista existente */}
+            {playerId && equipos.length > 0 && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Equipos</Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {isAthletesMode 
+                      ? 'Equipos a los que pertenece este deportista'
+                      : 'Equipos a los que pertenece este jugador'
+                    }
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {equipos.map((equipo) => (
+                    <div
+                      key={equipo.id}
+                      className="p-3 border rounded-lg bg-muted/50"
+                    >
+                      <div className="font-medium text-sm">{equipo.nombre}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {posiciones.length > 0 && (
+              <div className="space-y-4">
+                <div>
+                  <Label>{t('positions')}</Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {isAthletesMode 
+                      ? 'Selecciona las especialidades del deportista (opcional)'
+                      : t('selectPlayerPositions')
+                    }
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {posiciones.map((posicion) => (
+                    <div
+                      key={posicion.id}
+                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                        selectedPositions.includes(posicion.id)
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => togglePosition(posicion.id)}
+                    >
+                      <div className="font-medium text-sm">{posicion.nombre}</div>
+                      {posicion.descripcion && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {posicion.descripcion}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-6">
+              <Button variant="outline" onClick={onBack}>
+                {t('cancel')}
+              </Button>
+              <Button onClick={handleSavePlayer} disabled={saving} className="gap-2">
+                <Save className="h-4 w-4" />
+                {saving 
+                  ? t('saving') 
+                  : (playerId 
+                      ? (isAthletesMode ? 'Actualizar Deportista' : t('updatePlayer'))
+                      : (isAthletesMode ? 'Crear Deportista' : t('createPlayer'))
+                    )
+                }
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <AppFooter />
+    </div>
+  );
+}

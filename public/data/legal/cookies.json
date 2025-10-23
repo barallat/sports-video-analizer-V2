@@ -1,0 +1,152 @@
+{
+  "title": "Política de Cookies",
+  "lastUpdated": "7 de octubre de 2025",
+  "sections": [
+    {
+      "id": "what-are-cookies",
+      "title": "1. ¿Qué son las Cookies?",
+      "content": "Las cookies son pequeños archivos de texto que se almacenan en tu dispositivo cuando visitas un sitio web. Permiten que el sitio web recuerde información sobre tu visita, como tu idioma preferido y otras configuraciones, lo que puede hacer tu próxima visita más fácil y el sitio más útil para ti."
+    },
+    {
+      "id": "how-we-use-cookies",
+      "title": "2. ¿Cómo Utilizamos las Cookies?",
+      "content": "{{APP_NAME}} utiliza cookies para:",
+      "list": [
+        "Recordar tus preferencias y configuraciones",
+        "Mejorar la funcionalidad del sitio web",
+        "Analizar cómo utilizas nuestro sitio web",
+        "Personalizar el contenido y los anuncios",
+        "Garantizar la seguridad de la plataforma"
+      ]
+    },
+    {
+      "id": "types-of-cookies",
+      "title": "3. Tipos de Cookies que Utilizamos",
+      "content": "Utilizamos diferentes tipos de cookies según su finalidad:",
+      "list": [
+        {
+          "label": "Cookies Necesarias:",
+          "value": "Esenciales para el funcionamiento básico del sitio web"
+        },
+        {
+          "label": "Cookies Analíticas:",
+          "value": "Nos ayudan a entender cómo los usuarios interactúan con el sitio web"
+        },
+        {
+          "label": "Cookies de Funcionalidad:",
+          "value": "Permiten recordar las elecciones que haces para mejorar tu experiencia"
+        },
+        {
+          "label": "Cookies de Publicidad:",
+          "value": "Se utilizan para mostrar anuncios relevantes para ti"
+        }
+      ]
+    },
+    {
+      "id": "necessary-cookies",
+      "title": "4. Cookies Necesarias",
+      "content": "Estas cookies son esenciales para que puedas navegar por el sitio web y utilizar sus funciones. Sin estas cookies, los servicios que has solicitado no pueden ser proporcionados. Incluyen:",
+      "list": [
+        "Cookies de sesión para mantener tu sesión activa",
+        "Cookies de seguridad para proteger contra ataques",
+        "Cookies de autenticación para el inicio de sesión",
+        "Cookies de preferencias de idioma y región"
+      ]
+    },
+    {
+      "id": "analytical-cookies",
+      "title": "5. Cookies Analíticas",
+      "content": "Utilizamos Google Analytics 4 para recopilar información sobre cómo utilizas nuestro sitio web. Esta información nos ayuda a mejorar el sitio web y a entender qué contenido es más útil para nuestros usuarios. Los datos recopilados son anónimos e incluyen:",
+      "list": [
+        "Número de visitantes y páginas vistas",
+        "Tiempo de permanencia en el sitio",
+        "Páginas más visitadas",
+        "Fuente de tráfico (cómo llegaste a nuestro sitio)",
+        "Información del dispositivo y navegador"
+      ]
+    },
+    {
+      "id": "advertising-cookies",
+      "title": "6. Cookies de Publicidad",
+      "content": "Utilizamos cookies de publicidad para mostrar anuncios relevantes para ti. Estas cookies pueden ser establecidas por nosotros o por nuestros socios publicitarios. Incluyen:",
+      "list": [
+        "Google Ads para mostrar anuncios personalizados",
+        "Meta Ads (Facebook/Instagram) para publicidad dirigida",
+        "Cookies de remarketing para mostrar anuncios a usuarios que han visitado nuestro sitio",
+        "Cookies de medición de eficacia publicitaria"
+      ]
+    },
+    {
+      "id": "third-party-cookies",
+      "title": "7. Cookies de Terceros",
+      "content": "Algunas cookies en nuestro sitio web son establecidas por servicios de terceros. No tenemos control sobre estas cookies. Los terceros que pueden establecer cookies incluyen:",
+      "list": [
+        "Google Analytics para análisis web",
+        "Google Ads para publicidad",
+        "Meta (Facebook) para publicidad y análisis",
+        "Otros proveedores de servicios que utilizamos"
+      ]
+    },
+    {
+      "id": "cookie-duration",
+      "title": "8. Duración de las Cookies",
+      "content": "Las cookies pueden ser:",
+      "list": [
+        {
+          "label": "Cookies de sesión:",
+          "value": "Se eliminan cuando cierras el navegador"
+        },
+        {
+          "label": "Cookies persistentes:",
+          "value": "Permanecen en tu dispositivo durante un período determinado"
+        }
+      ],
+      "additionalContent": [
+        "La duración específica de cada cookie se indica en nuestra configuración de cookies. Puedes ver y gestionar todas las cookies activas en cualquier momento."
+      ]
+    },
+    {
+      "id": "managing-cookies",
+      "title": "9. Cómo Gestionar las Cookies",
+      "content": "Puedes controlar y gestionar las cookies de varias maneras:",
+      "list": [
+        "Utilizar nuestro panel de configuración de cookies en el sitio web",
+        "Configurar tu navegador para rechazar o aceptar cookies",
+        "Eliminar cookies existentes de tu dispositivo",
+        "Configurar tu navegador para que te notifique antes de que se instalen cookies"
+      ]
+    },
+    {
+      "id": "browser-settings",
+      "title": "10. Configuración del Navegador",
+      "content": "Puedes configurar tu navegador para gestionar las cookies. Aquí tienes enlaces a las instrucciones para los navegadores más comunes:",
+      "list": [
+        "Google Chrome: Configuración > Privacidad y seguridad > Cookies",
+        "Mozilla Firefox: Opciones > Privacidad y seguridad > Cookies",
+        "Safari: Preferencias > Privacidad > Cookies",
+        "Microsoft Edge: Configuración > Cookies y permisos del sitio"
+      ]
+    },
+    {
+      "id": "consequences-disabling",
+      "title": "11. Consecuencias de Deshabilitar las Cookies",
+      "content": "Si deshabilitas las cookies, algunas funciones de nuestro sitio web pueden no funcionar correctamente:",
+      "list": [
+        "No podrás mantener la sesión iniciada",
+        "Tus preferencias no se recordarán",
+        "Algunas funciones personalizadas pueden no estar disponibles",
+        "La experiencia de navegación puede verse afectada"
+      ]
+    },
+    {
+      "id": "updates-policy",
+      "title": "12. Actualizaciones de esta Política",
+      "content": "Podemos actualizar esta Política de Cookies ocasionalmente para reflejar cambios en nuestras prácticas o por otras razones operativas, legales o reglamentarias. Te recomendamos que revises esta página periódicamente para estar informado sobre nuestro uso de cookies."
+    },
+    {
+      "id": "contact-cookies",
+      "title": "13. Contacto",
+      "content": "Si tienes preguntas sobre nuestra Política de Cookies o sobre cómo utilizamos las cookies, puedes contactarnos en: legal@metaubiquity.es"
+    }
+  ]
+}

@@ -1,0 +1,338 @@
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ArrowLeft, Save } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { AppHeader } from '@/components/AppHeader';
+import { AppFooter } from '@/components/AppFooter';
+
+interface Posicion {
+  id: string;
+  nombre: string;
+  descripcion: string;
+}
+
+interface PlayerFormViewProps {
+  teamId: string;
+  teamName: string;
+  deporteId: string;
+  playerId?: string;
+  onBack: () => void;
+  onSaved: () => void;
+  userName?: string;
+  onLogout?: () => Promise<void>;
+}
+
+export function PlayerFormView({ teamId, teamName, deporteId, playerId, onBack, onSaved, userName, onLogout }: PlayerFormViewProps) {
+  const [posiciones, setPosiciones] = useState<Posicion[]>([]);
+  const [playerName, setPlayerName] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [height, setHeight] = useState('');
+  const [weight, setWeight] = useState('');
+  const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+  const { t } = useLanguage();
+
+  useEffect(() => {
+    loadPosiciones();
+    if (playerId) {
+      loadPlayerData();
+    } else {
+      setLoading(false);
+    }
+  }, [teamId, deporteId, playerId]);
+
+  const loadPosiciones = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('posiciones')
+        .select('id, nombre, descripcion')
+        .eq('deporte_id', deporteId)
+        .order('nombre');
+
+      if (error) {
+        console.error('Error loading positions:', error);
+        return;
+      }
+
+      setPosiciones(data || []);
+    } catch (error) {
+      console.error('Error loading positions:', error);
+    }
+  };
+
+  const loadPlayerData = async () => {
+    if (!playerId) return;
+
+    try {
+      const { data: player, error: playerError } = await supabase
+        .from('jugadores')
+        .select('id, nombre, fecha_nacimiento, altura, peso')
+        .eq('id', playerId)
+        .single();
+
+      if (playerError) {
+        console.error('Error loading player:', playerError);
+        return;
+      }
+
+      if (player) {
+        setPlayerName(player.nombre);
+        setBirthDate(player.fecha_nacimiento || '');
+        setHeight(player.altura?.toString() || '');
+        setWeight(player.peso?.toString() || '');
+      }
+
+      // Load player positions separately
+      const { data: playerPositions, error: positionsError } = await supabase
+        .from('jugador_posiciones')
+        .select('posicion_id')
+        .eq('jugador_id', playerId);
+
+      if (positionsError) {
+        console.error('Error loading player positions:', positionsError);
+        return;
+      }
+
+      setSelectedPositions(playerPositions?.map(item => item.posicion_id) || []);
+    } catch (error) {
+      console.error('Error loading player:', error);
+    }
+    setLoading(false);
+  };
+
+  const handleSavePlayer = async () => {
+    if (!playerName) {
+      toast({
+        variant: "destructive",
+        title: t('error'),
+        description: 'El nombre del jugador es obligatorio'
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      let currentPlayerId: string;
+
+      if (playerId) {
+        // Update existing player
+        const { error: updateError } = await supabase
+          .from('jugadores')
+          .update({
+            nombre: playerName,
+            fecha_nacimiento: birthDate || null,
+            altura: height ? parseFloat(height) : null,
+            peso: weight ? parseFloat(weight) : null
+          })
+          .eq('id', playerId);
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        currentPlayerId = playerId;
+
+        // Delete existing positions
+        const { error: deleteError } = await supabase
+          .from('jugador_posiciones')
+          .delete()
+          .eq('jugador_id', playerId);
+
+        if (deleteError) {
+          throw deleteError;
+        }
+      } else {
+        // Create new player
+        const { data: newPlayer, error: insertError } = await supabase
+          .from('jugadores')
+          .insert({
+            nombre: playerName,
+            equipo_id: teamId,
+            fecha_nacimiento: birthDate || null,
+            altura: height ? parseFloat(height) : null,
+            peso: weight ? parseFloat(weight) : null
+          })
+          .select()
+          .single();
+
+        if (insertError || !newPlayer) {
+          throw insertError || new Error('Error creating player');
+        }
+        currentPlayerId = newPlayer.id;
+      }
+
+      // Insert new positions
+      if (selectedPositions.length > 0) {
+        const posicionesData = selectedPositions.map(posicionId => ({
+          jugador_id: currentPlayerId,
+          posicion_id: posicionId
+        }));
+
+        const { error: positionsError } = await supabase
+          .from('jugador_posiciones')
+          .insert(posicionesData);
+
+        if (positionsError) {
+          throw positionsError;
+        }
+      }
+
+      toast({
+        title: playerId ? t('playerUpdated') : t('playerCreated'),
+        description: playerId ? t('playerUpdatedDescription') : t('playerCreatedDescription')
+      });
+
+      onSaved();
+    } catch (error) {
+      console.error('Error saving player:', error);
+      toast({
+        variant: "destructive",
+        title: t('error'),
+        description: t('couldNotSavePlayer')
+      });
+    }
+    setSaving(false);
+  };
+
+  const handlePositionToggle = (posicionId: string) => {
+    setSelectedPositions(prev => 
+      prev.includes(posicionId)
+        ? prev.filter(id => id !== posicionId)
+        : [...prev, posicionId]
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 flex flex-col">
+        <AppHeader userName={userName} onLogout={onLogout} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"></div>
+            <p className="text-muted-foreground">{t('loading')}</p>
+          </div>
+        </div>
+        <AppFooter />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 flex flex-col">
+      <AppHeader userName={userName} onLogout={onLogout} />
+      
+      <div className="flex-1 max-w-2xl mx-auto py-8 px-4">
+        <div className="mb-8">
+          <Button onClick={onBack} variant="ghost" className="mb-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            {t('back')}
+          </Button>
+          <h1 className="text-3xl font-bold">
+            {playerId ? 'Editar Jugador' : 'Nuevo Jugador'}
+          </h1>
+          <p className="text-muted-foreground">
+            {teamName}
+          </p>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Información del Jugador</CardTitle>
+            <CardDescription>
+              Completa los datos del jugador
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div>
+              <Label htmlFor="player-name">{t('playerName')} *</Label>
+              <Input
+                id="player-name"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                placeholder="Ej: Lionel Messi"
+              />
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="birth-date">{t('birthDate')}</Label>
+                <Input
+                  id="birth-date"
+                  type="date"
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="height">{t('height')}</Label>
+                <Input
+                  id="height"
+                  type="number"
+                  step="0.01"
+                  value={height}
+                  onChange={(e) => setHeight(e.target.value)}
+                  placeholder="1.75"
+                />
+              </div>
+              <div>
+                <Label htmlFor="weight">{t('weight')}</Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  step="0.1"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
+                  placeholder="70"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>{t('positions')} *</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2 max-h-60 overflow-y-auto border rounded p-4">
+                {posiciones.length > 0 ? (
+                  posiciones.map((posicion) => (
+                    <div key={posicion.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={posicion.id}
+                        checked={selectedPositions.includes(posicion.id)}
+                        onChange={() => handlePositionToggle(posicion.id)}
+                        className="rounded"
+                      />
+                      <label htmlFor={posicion.id} className="text-sm cursor-pointer">
+                        {posicion.nombre}
+                      </label>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-sm col-span-2">
+                    No hay posiciones disponibles para este deporte
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <Button 
+              onClick={handleSavePlayer}
+              disabled={!playerName || saving}
+              className="w-full"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {saving ? 'Guardando...' : (playerId ? 'Actualizar Jugador' : 'Crear Jugador')}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      <AppFooter />
+    </div>
+  );
+}

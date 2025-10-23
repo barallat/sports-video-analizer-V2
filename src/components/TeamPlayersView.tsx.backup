@@ -1,0 +1,215 @@
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { User, Plus, Edit, Trash2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { AppHeader } from '@/components/AppHeader';
+import { AppFooter } from '@/components/AppFooter';
+import { PageHeader } from '@/components/PageHeader';
+
+interface Jugador {
+  id: string;
+  nombre: string;
+  fecha_nacimiento: string | null;
+  altura: number | null;
+  peso: number | null;
+  posiciones?: string[];
+}
+
+interface TeamPlayersViewProps {
+  teamId: string;
+  teamName: string;
+  deporteId: string;
+  deporteName?: string;
+  onBack: () => void;
+  onPlayerForm: (playerId?: string) => void;
+  userName?: string;
+  onLogout?: () => Promise<void>;
+}
+
+export function TeamPlayersView({ 
+  teamId, 
+  teamName, 
+  deporteId, 
+  deporteName, 
+  onBack, 
+  onPlayerForm, 
+  userName, 
+  onLogout 
+}: TeamPlayersViewProps) {
+  const [jugadores, setJugadores] = useState<Jugador[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sportName, setSportName] = useState(deporteName || '');
+  const { toast } = useToast();
+  const { t } = useLanguage();
+
+  useEffect(() => {
+    loadJugadores();
+    if (!deporteName) {
+      loadSportName();
+    }
+  }, [teamId, deporteId]);
+
+  const loadSportName = async () => {
+    try {
+      const { data } = await supabase
+        .from('deportes')
+        .select('nombre')
+        .eq('id', deporteId)
+        .single();
+
+      if (data) {
+        setSportName(data.nombre);
+      }
+    } catch (error) {
+      console.error('Error loading sport name:', error);
+    }
+  };
+
+  const loadJugadores = async () => {
+    try {
+      const { data } = await supabase
+        .from('jugadores')
+        .select(`
+          *,
+          jugador_posiciones(
+            posicion_id,
+            posiciones(nombre)
+          )
+        `)
+        .eq('equipo_id', teamId)
+        .order('nombre');
+
+      if (data) {
+        const jugadoresConPosiciones = data.map(jugador => ({
+          ...jugador,
+          posiciones: jugador.jugador_posiciones?.map((jp: any) => jp.posiciones.nombre) || []
+        }));
+        setJugadores(jugadoresConPosiciones);
+      }
+    } catch (error) {
+      console.error('Error loading players:', error);
+    }
+    setLoading(false);
+  };
+
+  const handleDeletePlayer = async (playerId: string) => {
+    try {
+      await supabase
+        .from('jugadores')
+        .delete()
+        .eq('id', playerId);
+
+      toast({
+        title: t('playerDeleted'),
+        description: t('playerDeletedDescription')
+      });
+
+      loadJugadores();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: t('error'),
+        description: t('couldNotDeletePlayer')
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 flex flex-col">
+        <AppHeader userName={userName} onLogout={onLogout} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"></div>
+            <p className="text-muted-foreground">{t('loading')}</p>
+          </div>
+        </div>
+        <AppFooter />
+      </div>
+    );
+  }
+
+  const pageDescription = `${t('managePlayers')} - ${sportName}`;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 flex flex-col">
+      <AppHeader userName={userName} onLogout={onLogout} />
+
+      <div className="flex-1 max-w-6xl mx-auto py-8 px-4">
+        <PageHeader
+          title={`${teamName} - ${t('players')}`}
+          description={pageDescription}
+          onBack={onBack}
+          actions={
+            <Button onClick={() => onPlayerForm()} className="sports-gradient">
+              <Plus className="h-4 w-4 mr-2" />
+              {t('newPlayer')}
+            </Button>
+          }
+        />
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {jugadores.map((jugador) => (
+            <Card key={jugador.id} className="glass-card hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <User className="h-6 w-6 text-primary" />
+                  <div className="flex space-x-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onPlayerForm(jugador.id)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDeletePlayer(jugador.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <CardTitle>{jugador.nombre}</CardTitle>
+                <CardDescription>
+                  {jugador.posiciones && jugador.posiciones.length > 0 
+                    ? jugador.posiciones.join(', ')
+                    : t('noPositionAssigned')
+                  }
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  {jugador.fecha_nacimiento && (
+                    <p>{t('birthDate')}: {new Date(jugador.fecha_nacimiento).toLocaleDateString()}</p>
+                  )}
+                  {jugador.altura && <p>{t('height')}: {jugador.altura}m</p>}
+                  {jugador.peso && <p>{t('weight')}: {jugador.peso}kg</p>}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {jugadores.length === 0 && (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <User className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">{t('noPlayersIn')} {teamName}</h3>
+              <p className="text-muted-foreground mb-4">
+                {t('addFirstPlayer')}
+              </p>
+              <Button onClick={() => onPlayerForm()}>{t('newPlayer')}</Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      <AppFooter />
+    </div>
+  );
+}

@@ -1,0 +1,129 @@
+{
+  "title": "Política de Privacidad",
+  "lastUpdated": "7 de octubre de 2025",
+  "sections": [
+    {
+      "id": "introduction",
+      "title": "1. Introducción",
+      "content": "En {{COMPANY_NAME}}, respetamos tu privacidad y nos comprometemos a proteger tus datos personales. Esta Política de Privacidad explica cómo recopilamos, utilizamos y protegemos tu información cuando utilizas {{APP_NAME}}."
+    },
+    {
+      "id": "data-controller",
+      "title": "2. Responsable del Tratamiento",
+      "content": "El responsable del tratamiento de tus datos personales es:",
+      "list": [
+        {
+          "label": "Razón social:",
+          "value": "META UBIQUITY S.L."
+        },
+        {
+          "label": "CIF:",
+          "value": "B22953822"
+        },
+        {
+          "label": "Domicilio:",
+          "value": "Calle Núñez de Balboa 120, 28006 Madrid, España"
+        },
+        {
+          "label": "Email:",
+          "value": "legal@metaubiquity.es"
+        }
+      ]
+    },
+    {
+      "id": "data-collection",
+      "title": "3. Datos que Recopilamos",
+      "content": "Recopilamos los siguientes tipos de datos:",
+      "list": [
+        "Datos de identificación: nombre, apellidos, dirección de correo electrónico",
+        "Datos de contacto: dirección de correo electrónico, número de teléfono",
+        "Datos de navegación: dirección IP, tipo de navegador, páginas visitadas",
+        "Datos de uso: información sobre cómo utilizas la plataforma",
+        "Cookies y tecnologías similares para mejorar tu experiencia"
+      ]
+    },
+    {
+      "id": "data-purposes",
+      "title": "4. Finalidades del Tratamiento",
+      "content": "Utilizamos tus datos personales para:",
+      "list": [
+        "Proporcionar y mantener el servicio de {{APP_NAME}}",
+        "Gestionar tu cuenta de usuario",
+        "Comunicarnos contigo sobre el servicio",
+        "Mejorar y personalizar tu experiencia",
+        "Cumplir con obligaciones legales",
+        "Proteger la seguridad de la plataforma"
+      ]
+    },
+    {
+      "id": "legal-basis",
+      "title": "5. Base Legal del Tratamiento",
+      "content": "El tratamiento de tus datos se basa en:",
+      "list": [
+        "Consentimiento: cuando nos das tu consentimiento explícito",
+        "Ejecución contractual: para proporcionar el servicio solicitado",
+        "Interés legítimo: para mejorar nuestros servicios y seguridad",
+        "Obligación legal: para cumplir con la normativa aplicable"
+      ]
+    },
+    {
+      "id": "data-retention",
+      "title": "6. Conservación de Datos",
+      "content": "Conservamos tus datos personales durante el tiempo necesario para cumplir con las finalidades descritas en esta política, o según lo requiera la legislación aplicable. Los datos se eliminarán de forma segura una vez que ya no sean necesarios."
+    },
+    {
+      "id": "data-sharing",
+      "title": "7. Compartir Datos",
+      "content": "No vendemos, alquilamos ni compartimos tus datos personales con terceros, excepto en los siguientes casos:",
+      "list": [
+        "Con tu consentimiento explícito",
+        "Para cumplir con obligaciones legales",
+        "Con proveedores de servicios que nos ayudan a operar la plataforma",
+        "En caso de fusión, adquisición o venta de activos"
+      ]
+    },
+    {
+      "id": "user-rights",
+      "title": "8. Tus Derechos",
+      "content": "Tienes los siguientes derechos sobre tus datos personales:",
+      "list": [
+        "Acceso: solicitar información sobre qué datos tenemos sobre ti",
+        "Rectificación: corregir datos inexactos o incompletos",
+        "Supresión: solicitar la eliminación de tus datos",
+        "Limitación: restringir el tratamiento de tus datos",
+        "Portabilidad: recibir tus datos en formato estructurado",
+        "Oposición: oponerte al tratamiento de tus datos"
+      ]
+    },
+    {
+      "id": "cookies",
+      "title": "9. Cookies y Tecnologías Similares",
+      "content": "Utilizamos cookies y tecnologías similares para mejorar tu experiencia. Puedes gestionar tus preferencias de cookies en cualquier momento a través de la configuración de tu navegador o mediante nuestro panel de configuración de cookies."
+    },
+    {
+      "id": "data-security",
+      "title": "10. Seguridad de los Datos",
+      "content": "Implementamos medidas técnicas y organizativas apropiadas para proteger tus datos personales contra el acceso no autorizado, la alteración, divulgación o destrucción. Sin embargo, ningún método de transmisión por Internet es 100% seguro."
+    },
+    {
+      "id": "international-transfers",
+      "title": "11. Transferencias Internacionales",
+      "content": "Algunos de nuestros proveedores de servicios pueden estar ubicados fuera del Espacio Económico Europeo. En estos casos, nos aseguramos de que existan garantías adecuadas para proteger tus datos personales."
+    },
+    {
+      "id": "children-privacy",
+      "title": "12. Privacidad de Menores",
+      "content": "Nuestro servicio no está dirigido a menores de 16 años. No recopilamos conscientemente información personal de menores de 16 años. Si descubrimos que hemos recopilado datos de un menor, los eliminaremos inmediatamente."
+    },
+    {
+      "id": "policy-changes",
+      "title": "13. Cambios en esta Política",
+      "content": "Podemos actualizar esta Política de Privacidad ocasionalmente. Te notificaremos sobre cualquier cambio significativo publicando la nueva política en esta página y actualizando la fecha de \"última actualización\"."
+    },
+    {
+      "id": "contact-dpo",
+      "title": "14. Contacto",
+      "content": "Si tienes preguntas sobre esta Política de Privacidad o sobre el tratamiento de tus datos personales, puedes contactarnos en: legal@metaubiquity.es"
+    }
+  ]
+}
