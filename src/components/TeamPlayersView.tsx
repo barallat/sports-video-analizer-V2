@@ -146,7 +146,60 @@ export function TeamPlayersView({
         return;
       }
 
-      // Obtener todos los equipos del usuario para este deporte
+      // Si es atleta, solo mostrar su propio perfil
+      if (userData.role === 'athlete') {
+        // Obtener el jugador del usuario actual
+        const { data: jugadorData, error: jugadorError } = await supabase
+          .from('jugadores')
+          .select(`
+            id,
+            nombre,
+            fecha_nacimiento,
+            altura,
+            peso,
+            user_id,
+            jugador_posiciones(
+              posicion_id,
+              posiciones(nombre)
+            )
+          `)
+          .eq('user_id', userData.id)
+          .single();
+
+        if (jugadorError) {
+          console.error('Error loading athlete data:', jugadorError);
+          return;
+        }
+
+        if (jugadorData) {
+          // Verificar si el jugador pertenece a algún equipo del deporte especificado
+          const { data: teamMembership } = await supabase
+            .from('jugador_equipos')
+            .select(`
+              equipos!inner(
+                deporte_id
+              )
+            `)
+            .eq('jugador_id', jugadorData.id)
+            .eq('equipos.deporte_id', deporteId);
+
+          // Solo mostrar el atleta si pertenece a un equipo del deporte especificado
+          if (teamMembership && teamMembership.length > 0) {
+            setJugadores([{
+              ...jugadorData,
+              posiciones: jugadorData.jugador_posiciones?.map((jp: any) => jp.posiciones.nombre) || [],
+              equipos: []
+            }]);
+          } else {
+            setJugadores([]);
+          }
+        } else {
+          setJugadores([]);
+        }
+        return;
+      }
+
+      // Para gestores, obtener todos los equipos del usuario para este deporte
       const { data: userTeams } = await supabase
         .from('equipos')
         .select('id, nombre')

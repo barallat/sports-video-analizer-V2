@@ -1,31 +1,149 @@
 import { Home, Users, UserCheck, BarChart3, Target, Settings } from 'lucide-react';
 import { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 interface BottomNavigationProps {
   onNavigate?: (section: string) => void;
   currentSection?: string;
 }
 
-const navItems = [
-  { title: 'Dashboard', section: 'dashboard', icon: Home },
-  { title: 'Equipos', section: 'teams', icon: Users },
-  { title: 'Deportistas', section: 'deportistas', icon: UserCheck },
-  { title: 'Análisis', section: 'analysis', icon: BarChart3 },
-  { title: 'Resultados', section: 'results', icon: Target },
-  { title: 'Estadísticas', section: 'statistics', icon: BarChart3 },
-  { title: 'Config', section: 'config', icon: Settings },
-];
-
 export function BottomNavigation({ onNavigate, currentSection }: BottomNavigationProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const { user } = useAuth();
+  const [userRole, setUserRole] = useState<string>('');
+  const [isInTeam, setIsInTeam] = useState(false);
+  const [hasResults, setHasResults] = useState(false);
+
+  const navItems = [
+    { title: 'Dashboard', section: 'dashboard', icon: Home, show: true },
+    { 
+      title: userRole === 'athlete' ? 'Mis Equipos' : 'Equipos', 
+      section: 'teams', 
+      icon: Users, 
+      show: true, 
+      disabled: userRole === 'athlete' && !isInTeam 
+    },
+    { 
+      title: userRole === 'athlete' ? 'Mis datos' : 'Deportistas', 
+      section: 'deportistas', 
+      icon: UserCheck, 
+      show: true 
+    },
+    { title: 'Análisis', section: 'analysis', icon: BarChart3, show: true, disabled: userRole === 'athlete' },
+    { 
+      title: userRole === 'athlete' ? 'Mis resultados' : 'Resultados', 
+      section: 'results', 
+      icon: Target, 
+      show: true, 
+      disabled: userRole === 'athlete' && !hasResults 
+    },
+    { title: 'Estadísticas', section: 'statistics', icon: BarChart3, show: true, disabled: userRole === 'athlete' },
+    { title: 'Config', section: 'config', icon: Settings, show: true },
+  ];
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadUserRole();
+      checkTeamMembership();
+      checkResults();
+    }
+  }, [user]);
+
+  const loadUserRole = async () => {
+    if (!user) return;
+
+    try {
+      const { data: userData, error } = await supabase
+        .from('usuarios')
+        .select('role')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user role:', error);
+        return;
+      }
+
+      if (userData?.role) {
+        setUserRole(userData.role);
+      }
+    } catch (error) {
+      console.error('Error in loadUserRole:', error);
+    }
+  };
+
+  const checkTeamMembership = async () => {
+    if (!user) return;
+
+    try {
+      const { data: userData } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) return;
+
+      const { data: jugadorData } = await supabase
+        .from('jugadores')
+        .select('id')
+        .eq('user_id', userData.id)
+        .single();
+
+      if (!jugadorData) return;
+
+      const { data: teamData } = await supabase
+        .from('jugador_equipos')
+        .select('equipo_id')
+        .eq('jugador_id', jugadorData.id)
+        .limit(1);
+
+      setIsInTeam(teamData && teamData.length > 0);
+    } catch (error) {
+      console.error('Error checking team membership:', error);
+    }
+  };
+
+  const checkResults = async () => {
+    if (!user) return;
+
+    try {
+      const { data: userData } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) return;
+
+      const { data: jugadorData } = await supabase
+        .from('jugadores')
+        .select('id')
+        .eq('user_id', userData.id)
+        .single();
+
+      if (!jugadorData) return;
+
+      const { data: resultsData } = await supabase
+        .from('analisis_videos')
+        .select('id')
+        .eq('jugador_id', jugadorData.id)
+        .limit(1);
+
+      setHasResults(resultsData && resultsData.length > 0);
+    } catch (error) {
+      console.error('Error checking results:', error);
+    }
+  };
 
   // Verificar posición de scroll
   const checkScroll = () => {
@@ -83,13 +201,17 @@ export function BottomNavigation({ onNavigate, currentSection }: BottomNavigatio
       >
         {navItems.map((item) => {
           const isActive = currentSection === item.section;
+          const isDisabled = item.disabled;
           return (
             <button
               key={item.title}
-              onClick={() => onNavigate?.(item.section)}
+              onClick={() => !isDisabled && onNavigate?.(item.section)}
+              disabled={isDisabled}
               className={`flex flex-col items-center justify-center flex-shrink-0 w-24 h-20 gap-0.5 transition-colors ${
                 isActive
                   ? 'text-primary'
+                  : isDisabled
+                  ? 'text-muted-foreground/50 cursor-not-allowed'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >

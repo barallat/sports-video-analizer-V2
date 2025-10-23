@@ -256,15 +256,58 @@ const Index = () => {
     
     // Lógica específica para equipos en modo de un solo deporte
     if (section === 'teams' && features.skipSportsConfig) {
-      await loadConfiguredSport();
-      setCurrentSection('sport-teams');
+      // Si es atleta, verificar cuántos equipos tiene
+      if (userRole === 'athlete') {
+        await loadConfiguredSport();
+        const teamCount = await checkAthleteTeamCount();
+        if (teamCount === 1) {
+          // Si solo tiene un equipo, ir directamente a la vista del equipo
+          await goToAthleteTeamDetail();
+        } else {
+          // Si tiene múltiples equipos o ninguno, mostrar vista de fichas
+          setCurrentSection('sport-teams');
+        }
+      } else {
+        // Para gestores, usar lógica normal
+        await loadConfiguredSport();
+        setCurrentSection('sport-teams');
+      }
     } else if (section === 'teams') {
       setCurrentSection('teams');
     }
     // Lógica específica para deportistas
     else if (section === 'deportistas' && features.skipSportsConfig) {
-      await loadConfiguredSportForAthletes();
-      setCurrentSection('sport-athletes');
+      // Si es atleta, ir directamente a su formulario de edición
+      if (userRole === 'athlete') {
+        await loadConfiguredSportForAthletes();
+        // Obtener el ID del jugador del atleta actual
+        const { data: userData } = await supabase
+          .from('usuarios')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .single();
+        
+        if (userData) {
+          const { data: jugadorData } = await supabase
+            .from('jugadores')
+            .select('id')
+            .eq('user_id', userData.id)
+            .single();
+          
+          if (jugadorData) {
+            setEditingPlayer(jugadorData.id);
+            setCurrentSection('athlete-form');
+          } else {
+            // Si no tiene datos de jugador, crear nuevo
+            setEditingPlayer(undefined);
+            setCurrentSection('athlete-form');
+          }
+        }
+      } else {
+        // Para gestores, mostrar vista normal de deportistas
+        await loadConfiguredSportForAthletes();
+        setCurrentSection('sport-athletes');
+      }
     } else if (section === 'deportistas') {
       setCurrentSection('athletes-selection');
     } else if (section === 'sport-teams' && features.skipSportsConfig && database.sportFilter !== 'all') {
@@ -279,6 +322,9 @@ const Index = () => {
       setCurrentSection(section);
     } else if (section === 'legal') {
       setCurrentSection(section);
+    } else if (section === 'results' && userRole === 'athlete') {
+      // Para atletas, usar la vista específica de resultados
+      setCurrentSection('athlete-results');
     } else {
       setCurrentSection(section);
     }
@@ -315,6 +361,90 @@ const Index = () => {
       }
     } catch (error) {
       console.error('Error loading configured sport for athletes:', error);
+    }
+  };
+
+  const checkAthleteTeamCount = async () => {
+    try {
+      const { data: userData } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) return 0;
+
+      const { data: jugadorData } = await supabase
+        .from('jugadores')
+        .select('id')
+        .eq('user_id', userData.id)
+        .single();
+
+      if (!jugadorData) return 0;
+
+      const { data: teamData } = await supabase
+        .from('jugador_equipos')
+        .select(`
+          equipos!inner(
+            deporte_id
+          )
+        `)
+        .eq('jugador_id', jugadorData.id)
+        .eq('equipos.deporte_id', database.sportFilter);
+
+      return teamData?.length || 0;
+    } catch (error) {
+      console.error('Error checking athlete team count:', error);
+      return 0;
+    }
+  };
+
+  const goToAthleteTeamDetail = async () => {
+    try {
+      const { data: userData } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) return;
+
+      const { data: jugadorData } = await supabase
+        .from('jugadores')
+        .select('id')
+        .eq('user_id', userData.id)
+        .single();
+
+      if (!jugadorData) return;
+
+      const { data: teamData } = await supabase
+        .from('jugador_equipos')
+        .select(`
+          equipos!inner(
+            id,
+            nombre,
+            deporte_id,
+            deportes!inner(
+              nombre
+            )
+          )
+        `)
+        .eq('jugador_id', jugadorData.id)
+        .eq('equipos.deporte_id', database.sportFilter)
+        .limit(1);
+
+      if (teamData && teamData.length > 0) {
+        const team = teamData[0].equipos;
+        setSelectedAthleteTeam({
+          id: team.id,
+          name: team.nombre,
+          deporteId: team.deporte_id,
+          deporteName: team.deportes.nombre
+        });
+        setCurrentSection('athlete-team-detail');
+      }
+    } catch (error) {
+      console.error('Error going to athlete team detail:', error);
     }
   };
 
@@ -801,6 +931,13 @@ const Index = () => {
   const getSelectedTeamForBreadcrumb = () => {
     if (currentSection === 'team-players' && selectedTeam) {
       return selectedTeam;
+    }
+    if (currentSection === 'athlete-team-detail' && selectedAthleteTeam) {
+      return {
+        id: selectedAthleteTeam.id,
+        name: selectedAthleteTeam.name,
+        deporteId: selectedAthleteTeam.deporteId
+      };
     }
     return null;
   };

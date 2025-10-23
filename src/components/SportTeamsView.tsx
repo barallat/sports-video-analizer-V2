@@ -14,8 +14,15 @@ interface Equipo {
   nombre: string;
   deporte_id: string;
   usuario_id: string;
+  entrenador: string | null;
+  categoria: string | null;
   created_at: string;
   updated_at: string;
+  jugadores_count?: number;
+  proximo_entreno?: {
+    fecha: string;
+    hora: string;
+  } | null;
 }
 
 interface Deporte {
@@ -39,13 +46,74 @@ export function SportTeamsView({ deporte, onBack, onTeamSelect, onTeamForm, user
   const [editingTeam, setEditingTeam] = useState<string | null>(null);
   const [editingTeamName, setEditingTeamName] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
+  const [userRole, setUserRole] = useState<string>('');
   const { toast } = useToast();
   const { t } = useLanguage();
   const { features, sportDisplayName } = useSportConfigContext();
 
   useEffect(() => {
     loadEquipos();
+    loadUserRole();
   }, [deporte.id]);
+
+  const loadUserRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: userData, error } = await supabase
+        .from('usuarios')
+        .select('role')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user role:', error);
+        return;
+      }
+
+      if (userData?.role) {
+        setUserRole(userData.role);
+      }
+    } catch (error) {
+      console.error('Error in loadUserRole:', error);
+    }
+  };
+
+  const loadTeamAdditionalData = async (teams: Equipo[]) => {
+    try {
+      const teamsWithData = await Promise.all(
+        teams.map(async (team) => {
+          // Load player count
+          const { count: playerCount } = await supabase
+            .from('jugador_equipos')
+            .select('*', { count: 'exact', head: true })
+            .eq('equipo_id', team.id);
+
+          // Load next training session
+          const { data: nextTraining } = await supabase
+            .from('entrenos')
+            .select('fecha, hora')
+            .eq('equipo_id', team.id)
+            .gte('fecha', new Date().toISOString().split('T')[0])
+            .order('fecha', { ascending: true })
+            .limit(1)
+            .single();
+
+          return {
+            ...team,
+            jugadores_count: playerCount || 0,
+            proximo_entreno: nextTraining || null
+          };
+        })
+      );
+
+      setEquipos(teamsWithData);
+    } catch (error) {
+      console.error('Error loading team additional data:', error);
+      setEquipos(teams);
+    }
+  };
 
   const loadEquipos = async () => {
     try {
@@ -54,27 +122,84 @@ export function SportTeamsView({ deporte, onBack, onTeamSelect, onTeamForm, user
       
       const { data: userData } = await supabase
         .from('usuarios')
-        .select('id')
+        .select('id, role')
         .eq('auth_user_id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
       console.log('👤 User data:', userData);
 
       if (userData) {
-        console.log('🔍 Querying equipos with usuario_id:', userData.id, 'and deporte_id:', deporte.id);
-        
-        const { data, error } = await supabase
-          .from('equipos')
-          .select('*')
-          .eq('usuario_id', userData.id)
-          .eq('deporte_id', deporte.id)
-          .order('nombre');
+        // Si es atleta, obtener equipos a través de jugador_equipos
+        if (userData.role === 'athlete') {
+          console.log('🏃 Loading teams for athlete through jugador_equipos');
+          
+          // Primero obtener el jugador_id del usuario
+          const { data: jugadorData, error: jugadorError } = await supabase
+            .from('jugadores')
+            .select('id')
+            .eq('user_id', userData.id)
+            .single();
 
-        console.log('📊 Equipos query result:', { data, error });
+          if (jugadorError || !jugadorData) {
+            console.error('Error fetching jugador data:', jugadorError);
+            setEquipos([]);
+            setLoading(false);
+            return;
+          }
 
-        if (data) {
-          setEquipos(data);
-          console.log('✅ Teams loaded:', data.length);
+          // Obtener los equipos del deportista para este deporte específico
+          const { data: teamData, error: teamError } = await supabase
+            .from('jugador_equipos')
+            .select(`
+              equipos!inner(
+                id,
+                nombre,
+                deporte_id,
+                entrenador,
+                categoria,
+                created_at,
+                updated_at
+              )
+            `)
+            .eq('jugador_id', jugadorData.id)
+            .eq('equipos.deporte_id', deporte.id);
+
+          if (teamError) {
+            console.error('Error loading athlete teams:', teamError);
+            setEquipos([]);
+            setLoading(false);
+            return;
+          }
+
+          const equiposData = teamData?.map(item => item.equipos).filter(Boolean) || [];
+          await loadTeamAdditionalData(equiposData);
+          console.log('✅ Athlete teams loaded:', equiposData.length);
+        } else {
+          // Para gestores, usar la consulta original
+          console.log('🔍 Querying equipos with usuario_id:', userData.id, 'and deporte_id:', deporte.id);
+          
+          const { data, error } = await supabase
+            .from('equipos')
+            .select(`
+              id,
+              nombre,
+              deporte_id,
+              usuario_id,
+              entrenador,
+              categoria,
+              created_at,
+              updated_at
+            `)
+            .eq('usuario_id', userData.id)
+            .eq('deporte_id', deporte.id)
+            .order('nombre');
+
+          console.log('📊 Equipos query result:', { data, error });
+
+          if (data) {
+            await loadTeamAdditionalData(data);
+            console.log('✅ Teams loaded:', data.length);
+          }
         }
       }
     } catch (error) {
@@ -207,10 +332,12 @@ export function SportTeamsView({ deporte, onBack, onTeamSelect, onTeamForm, user
           <h3 className="text-lg font-semibold">
             Equipos ({equipos.length})
           </h3>
-          <Button onClick={onTeamForm} className="gap-2">
-            <Plus className="h-4 w-4" />
-            nuevo equipo
-          </Button>
+          {userRole !== 'athlete' && (
+            <Button onClick={onTeamForm} className="gap-2">
+              <Plus className="h-4 w-4" />
+              nuevo equipo
+            </Button>
+          )}
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -223,55 +350,57 @@ export function SportTeamsView({ deporte, onBack, onTeamSelect, onTeamForm, user
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <Users className="h-6 w-6 text-primary" />
-                  <div className="flex space-x-2">
-                    {editingTeam === equipo.id ? (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditTeam(equipo.id);
-                          }}
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            cancelEditing();
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEditing(equipo.id, equipo.nombre);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteTeam(equipo.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                  {userRole !== 'athlete' && (
+                    <div className="flex space-x-2">
+                      {editingTeam === equipo.id ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditTeam(equipo.id);
+                            }}
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              cancelEditing();
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditing(equipo.id, equipo.nombre);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteTeam(equipo.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {editingTeam === equipo.id ? (
                   <Input
@@ -293,6 +422,24 @@ export function SportTeamsView({ deporte, onBack, onTeamSelect, onTeamForm, user
                 )}
               </CardHeader>
               <CardContent>
+                <div className="space-y-2 mb-4">
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-medium">Entrenador:</span> {equipo.entrenador || 'Sin definir'}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-medium">Categoría:</span> {equipo.categoria || 'Sin definir'}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-medium">Nº Jugadores:</span> {equipo.jugadores_count || 0}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-medium">Próximo Entreno:</span> {
+                      equipo.proximo_entreno 
+                        ? `${new Date(equipo.proximo_entreno.fecha).toLocaleDateString('es-ES')} ${equipo.proximo_entreno.hora}`
+                        : 'Sin definir'
+                    }
+                  </div>
+                </div>
                 <Button variant="outline" className="w-full">
                   Detalle
                 </Button>

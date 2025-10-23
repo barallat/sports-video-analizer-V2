@@ -216,31 +216,17 @@ export function AthleteTeamDetailView({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 flex flex-col">
-        <AppHeader userName={userName} onLogout={onLogout} />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"></div>
-            <p className="text-muted-foreground">{t('loading')}</p>
-          </div>
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center space-y-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"></div>
+          <p className="text-muted-foreground">{t('loading')}</p>
         </div>
-        <AppFooter />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 flex flex-col">
-      <AppHeader userName={userName} onLogout={onLogout} />
-
-      <div className="flex-1 max-w-6xl mx-auto py-8 px-4">
-        <PageHeader
-          title={teamName}
-          description={`Equipo de ${deporteName} - Vista de solo lectura`}
-          onBack={onBack}
-        />
-
-        <div className="space-y-6">
+    <div className="space-y-6">
           {/* Información del equipo */}
           <Card className="glass-card">
             <CardHeader>
@@ -353,10 +339,6 @@ export function AthleteTeamDetailView({
               />
             </CardContent>
           </Card>
-        </div>
-      </div>
-
-      <AppFooter />
     </div>
   );
 }

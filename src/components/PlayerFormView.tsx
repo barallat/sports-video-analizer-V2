@@ -722,7 +722,7 @@ export function PlayerFormView({
           {/* Botones de acción */}
           <div className="flex justify-between gap-4">
             <div className="flex gap-4">
-              {playerId && onAnalyze && (
+              {playerId && onAnalyze && !isAthletesMode && (
                 <Button 
                   onClick={() => onAnalyze(playerId, deporteId)}
                   className="bg-blue-600 hover:bg-blue-700"

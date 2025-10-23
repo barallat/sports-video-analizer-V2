@@ -179,7 +179,7 @@ export function Dashboard({ onNavigate, onLogout, userName }: DashboardProps) {
     try {
       const { data: userData, error: userError } = await supabase
         .from('usuarios')
-        .select('id, clave_club')
+        .select('id, clave_club, role')
         .eq('auth_user_id', user.id)
         .single();
 
@@ -189,50 +189,130 @@ export function Dashboard({ onNavigate, onLogout, userName }: DashboardProps) {
       }
 
       // Load teams count
-      let teamsQuery = supabase
-        .from('equipos')
-        .select('id', { count: 'exact' })
-        .eq('usuario_id', userData.id);
+      let teamsCount = 0;
+      if (userData.role === 'athlete') {
+        // Para atletas, contar equipos a través de jugador_equipos
+        const { data: jugadorData, error: jugadorError } = await supabase
+          .from('jugadores')
+          .select('id')
+          .eq('user_id', userData.id)
+          .single();
 
-      if (features.skipSportsConfig && database.sportFilter !== 'all') {
-        teamsQuery = teamsQuery.eq('deporte_id', database.sportFilter);
+        if (!jugadorError && jugadorData) {
+          let teamsQuery = supabase
+            .from('jugador_equipos')
+            .select(`
+              equipos!inner(
+                deporte_id
+              )
+            `)
+            .eq('jugador_id', jugadorData.id);
+
+          if (features.skipSportsConfig && database.sportFilter !== 'all') {
+            teamsQuery = teamsQuery.eq('equipos.deporte_id', database.sportFilter);
+          }
+
+          const { data: teamsData } = await teamsQuery;
+          teamsCount = teamsData?.length || 0;
+        }
+      } else {
+        // Para gestores, usar la lógica original
+        let teamsQuery = supabase
+          .from('equipos')
+          .select('id', { count: 'exact' })
+          .eq('usuario_id', userData.id);
+
+        if (features.skipSportsConfig && database.sportFilter !== 'all') {
+          teamsQuery = teamsQuery.eq('deporte_id', database.sportFilter);
+        }
+
+        const { count: teamsCountData } = await teamsQuery;
+        teamsCount = teamsCountData || 0;
       }
-
-      const { count: teamsCount } = await teamsQuery;
 
       // Load players count
-      let playersQuery = supabase
-        .from('jugadores')
-        .select('id', { count: 'exact' })
-        .eq('clave_club', userData.clave_club);
-
-      if (features.skipSportsConfig && database.sportFilter !== 'all') {
-        // Filtrar por deporte a través de la relación con equipos
-        playersQuery = playersQuery
-          .select(`
-            id,
-            equipos!inner(deporte_id)
-          `)
-          .eq('equipos.deporte_id', database.sportFilter);
+      let playersCount = 0;
+      if (userData.role === 'athlete') {
+        // Para atletas, solo se cuenta a sí mismo
+        playersCount = 1;
+      } else {
+        // Para gestores, usar la lógica original
+        if (features.skipSportsConfig && database.sportFilter !== 'all') {
+          // Filtrar por deporte a través de la relación con equipos usando jugador_equipos
+          const { count: playersCountData } = await supabase
+            .from('jugador_equipos')
+            .select(`
+              jugadores!inner(
+                id,
+                clave_club
+              ),
+              equipos!inner(
+                deporte_id
+              )
+            `, { count: 'exact' })
+            .eq('jugadores.clave_club', userData.clave_club)
+            .eq('equipos.deporte_id', database.sportFilter);
+          
+          playersCount = playersCountData || 0;
+        } else {
+          // Sin filtro de deporte, usar la consulta original
+          const { count: playersCountData } = await supabase
+            .from('jugadores')
+            .select('id', { count: 'exact' })
+            .eq('clave_club', userData.clave_club);
+          
+          playersCount = playersCountData || 0;
+        }
       }
-
-      const { count: playersCount } = await playersQuery;
 
       // Load analysis count and best score
-      let analysisQuery = supabase
-        .from('analisis_videos')
-        .select(`
-          id, 
-          resultados_analisis
-        `)
-        .eq('usuario_id', userData.id);
+      let analysisCount = 0;
+      let bestScore = 0;
+      let analysisData: any[] = [];
 
-      if (features.skipSportsConfig && database.sportFilter !== 'all') {
-        analysisQuery = analysisQuery.eq('deporte_id', database.sportFilter);
+      if (userData.role === 'athlete') {
+        // Para atletas, obtener análisis por jugador_id
+        const { data: jugadorData, error: jugadorError } = await supabase
+          .from('jugadores')
+          .select('id')
+          .eq('user_id', userData.id)
+          .single();
+
+        if (!jugadorError && jugadorData) {
+          let analysisQuery = supabase
+            .from('analisis_videos')
+            .select(`
+              id, 
+              resultados_analisis
+            `)
+            .eq('jugador_id', jugadorData.id);
+
+          if (features.skipSportsConfig && database.sportFilter !== 'all') {
+            analysisQuery = analysisQuery.eq('deporte_id', database.sportFilter);
+          }
+
+          const { data: analysisDataResult } = await analysisQuery;
+          analysisData = analysisDataResult || [];
+          analysisCount = analysisData.length;
+        }
+      } else {
+        // Para gestores, usar la lógica original
+        let analysisQuery = supabase
+          .from('analisis_videos')
+          .select(`
+            id, 
+            resultados_analisis
+          `)
+          .eq('usuario_id', userData.id);
+
+        if (features.skipSportsConfig && database.sportFilter !== 'all') {
+          analysisQuery = analysisQuery.eq('deporte_id', database.sportFilter);
+        }
+
+        const { data: analysisDataResult } = await analysisQuery;
+        analysisData = analysisDataResult || [];
+        analysisCount = analysisData.length;
       }
-
-      const { data: analysisData } = await analysisQuery;
-      const analysisCount = analysisData?.length || 0;
       
       // Extract scores from resultados_analisis
       const scores = analysisData?.map(analysis => {
@@ -243,47 +323,87 @@ export function Dashboard({ onNavigate, onLogout, userName }: DashboardProps) {
         return 0;
       }) || [];
       
-      const bestScore = scores.length > 0 ? Math.max(...scores) : 0;
+      bestScore = scores.length > 0 ? Math.max(...scores) : 0;
 
       // Load recent analysis (last 3)
-      let recentAnalysisQuery = supabase
-        .from('analisis_videos')
-        .select(`
-          id,
-          titulo,
-          resultados_analisis,
-          created_at,
-          jugadores(nombre),
-          equipos(nombre)
-        `)
-        .eq('usuario_id', userData.id)
-        .order('created_at', { ascending: false })
-        .limit(3);
+      let recentAnalysis: any[] = [];
+      if (userData.role === 'athlete') {
+        // Para atletas, obtener análisis por jugador_id
+        const { data: jugadorData, error: jugadorError } = await supabase
+          .from('jugadores')
+          .select('id')
+          .eq('user_id', userData.id)
+          .single();
 
-      if (features.skipSportsConfig && database.sportFilter !== 'all') {
-        recentAnalysisQuery = recentAnalysisQuery.eq('deporte_id', database.sportFilter);
+        if (!jugadorError && jugadorData) {
+          let recentAnalysisQuery = supabase
+            .from('analisis_videos')
+            .select(`
+              id,
+              titulo,
+              resultados_analisis,
+              created_at,
+              jugadores(nombre),
+              equipos(nombre)
+            `)
+            .eq('jugador_id', jugadorData.id)
+            .order('created_at', { ascending: false })
+            .limit(3);
+
+          if (features.skipSportsConfig && database.sportFilter !== 'all') {
+            recentAnalysisQuery = recentAnalysisQuery.eq('deporte_id', database.sportFilter);
+          }
+
+          const { data: recentAnalysisData } = await recentAnalysisQuery;
+          recentAnalysis = recentAnalysisData || [];
+        }
+      } else {
+        // Para gestores, usar la lógica original
+        let recentAnalysisQuery = supabase
+          .from('analisis_videos')
+          .select(`
+            id,
+            titulo,
+            resultados_analisis,
+            created_at,
+            jugadores(nombre),
+            equipos(nombre)
+          `)
+          .eq('usuario_id', userData.id)
+          .order('created_at', { ascending: false })
+          .limit(3);
+
+        if (features.skipSportsConfig && database.sportFilter !== 'all') {
+          recentAnalysisQuery = recentAnalysisQuery.eq('deporte_id', database.sportFilter);
+        }
+
+        const { data: recentAnalysisData } = await recentAnalysisQuery;
+        recentAnalysis = recentAnalysisData || [];
       }
-
-      const { data: recentAnalysis } = await recentAnalysisQuery;
 
       // Load top players by average score
-      let topPlayersQuery = supabase
-        .from('analisis_videos')
-        .select(`
-          jugador_id,
-          resultados_analisis,
-          jugadores(nombre)
-        `)
-        .eq('usuario_id', userData.id);
+      let topPlayers: any[] = [];
+      if (userData.role !== 'athlete') {
+        // Solo para gestores, no para atletas
+        let topPlayersQuery = supabase
+          .from('analisis_videos')
+          .select(`
+            jugador_id,
+            resultados_analisis,
+            jugadores(nombre)
+          `)
+          .eq('usuario_id', userData.id);
 
-      if (features.skipSportsConfig && database.sportFilter !== 'all') {
-        topPlayersQuery = topPlayersQuery.eq('deporte_id', database.sportFilter);
+        if (features.skipSportsConfig && database.sportFilter !== 'all') {
+          topPlayersQuery = topPlayersQuery.eq('deporte_id', database.sportFilter);
+        }
+
+        const { data: topPlayersData } = await topPlayersQuery;
+        topPlayers = topPlayersData || [];
       }
 
-      const { data: topPlayersData } = await topPlayersQuery;
-
       // Calculate average scores per player
-      const playerScores = topPlayersData?.reduce((acc: any, analysis) => {
+      const playerScores = topPlayers?.reduce((acc: any, analysis) => {
         const playerId = analysis.jugador_id;
         if (!acc[playerId]) {
           acc[playerId] = { name: analysis.jugadores?.nombre, scores: [], total: 0 };
@@ -301,7 +421,7 @@ export function Dashboard({ onNavigate, onLogout, userName }: DashboardProps) {
         return acc;
       }, {}) || {};
 
-      const topPlayers = Object.values(playerScores)
+      const topPlayersFinal = Object.values(playerScores)
         .map((player: any) => ({
           name: player.name,
           averageScore: player.total / player.scores.length,
@@ -316,7 +436,7 @@ export function Dashboard({ onNavigate, onLogout, userName }: DashboardProps) {
         analysisCount,
         bestScore,
         recentAnalysis: recentAnalysis || [],
-        topPlayers
+        topPlayers: topPlayersFinal
       });
     } catch (error) {
       console.error('Error loading dashboard metrics:', error);
@@ -475,21 +595,23 @@ export function Dashboard({ onNavigate, onLogout, userName }: DashboardProps) {
             </CardContent>
           </Card>
 
-          {/* Players Count */}
-          <Card className="glass-card border-2">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Jugadores</CardTitle>
-              <UserCheck className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {metricsLoading ? '...' : metrics.playersCount}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Jugadores registrados
-              </p>
-            </CardContent>
-          </Card>
+          {/* Players Count - Solo para gestores */}
+          {userRole !== 'athlete' && (
+            <Card className="glass-card border-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Jugadores</CardTitle>
+                <UserCheck className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {metricsLoading ? '...' : metrics.playersCount}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Jugadores registrados
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Analysis Count */}
           <Card className="glass-card border-2">
@@ -575,49 +697,51 @@ export function Dashboard({ onNavigate, onLogout, userName }: DashboardProps) {
             </CardContent>
           </Card>
 
-          {/* Top Players */}
-          <Card className="glass-card border-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Mejores Jugadores
-              </CardTitle>
-              <CardDescription>
-                Jugadores con mejor puntuación promedio
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {metricsLoading ? (
-                <div className="text-center py-4">Cargando...</div>
-              ) : metrics.topPlayers.length > 0 ? (
-                <div className="space-y-3">
-                  {metrics.topPlayers.map((player, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold">
-                          {index + 1}
+          {/* Top Players - Solo para gestores */}
+          {userRole !== 'athlete' && (
+            <Card className="glass-card border-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Mejores Jugadores
+                </CardTitle>
+                <CardDescription>
+                  Jugadores con mejor puntuación promedio
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {metricsLoading ? (
+                  <div className="text-center py-4">Cargando...</div>
+                ) : metrics.topPlayers.length > 0 ? (
+                  <div className="space-y-3">
+                    {metrics.topPlayers.map((player, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{player.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {player.analysisCount} análisis
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-sm">{player.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {player.analysisCount} análisis
-                          </p>
+                        <div className="text-right">
+                          <p className="font-bold text-sm">{player.averageScore.toFixed(1)}</p>
+                          <p className="text-xs text-muted-foreground">promedio</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-sm">{player.averageScore.toFixed(1)}</p>
-                        <p className="text-xs text-muted-foreground">promedio</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-4 text-muted-foreground">
-                  No hay datos de jugadores
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No hay datos de jugadores
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

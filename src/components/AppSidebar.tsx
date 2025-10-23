@@ -10,17 +10,10 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useCookieConsent } from "@/contexts/CookieContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Cookie, FileText, Home, Settings, Shield, Users, BarChart3, Target, UserCheck } from "lucide-react";
-
-const menuItems = [
-  { title: "Dashboard", section: "dashboard", icon: Home },
-  { title: "Equipos", section: "teams", icon: Users },
-  { title: "Deportistas", section: "deportistas", icon: UserCheck },
-  { title: "Análisis", section: "analysis", icon: BarChart3 },
-  { title: "Resultados", section: "results", icon: Target },
-  { title: "Estadísticas", section: "statistics", icon: BarChart3 },
-  { title: "Configuración", section: "config", icon: Settings },
-];
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AppSidebarProps {
   onNavigate?: (section: string) => void;
@@ -29,6 +22,132 @@ interface AppSidebarProps {
 export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const { open } = useSidebar();
   const { openSettings } = useCookieConsent();
+  const { user } = useAuth();
+  const [userRole, setUserRole] = useState<string>('');
+  const [isInTeam, setIsInTeam] = useState(false);
+  const [hasResults, setHasResults] = useState(false);
+
+  const menuItems = [
+    { title: "Dashboard", section: "dashboard", icon: Home, show: true },
+    { 
+      title: userRole === 'athlete' ? "Mis Equipos" : "Equipos", 
+      section: "teams", 
+      icon: Users, 
+      show: true, 
+      disabled: userRole === 'athlete' && !isInTeam 
+    },
+    { 
+      title: userRole === 'athlete' ? "Mis datos" : "Deportistas", 
+      section: "deportistas", 
+      icon: UserCheck, 
+      show: true 
+    },
+    { title: "Análisis", section: "analysis", icon: BarChart3, show: true, disabled: userRole === 'athlete' },
+    { 
+      title: userRole === 'athlete' ? "Mis resultados" : "Resultados", 
+      section: "results", 
+      icon: Target, 
+      show: true, 
+      disabled: userRole === 'athlete' && !hasResults 
+    },
+    { title: "Estadísticas", section: "statistics", icon: BarChart3, show: true, disabled: userRole === 'athlete' },
+    { title: "Configuración", section: "config", icon: Settings, show: true },
+  ];
+
+  useEffect(() => {
+    if (user) {
+      loadUserRole();
+      checkTeamMembership();
+      checkResults();
+    }
+  }, [user]);
+
+  const loadUserRole = async () => {
+    if (!user) return;
+
+    try {
+      const { data: userData, error } = await supabase
+        .from('usuarios')
+        .select('role')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user role:', error);
+        return;
+      }
+
+      if (userData?.role) {
+        setUserRole(userData.role);
+      }
+    } catch (error) {
+      console.error('Error in loadUserRole:', error);
+    }
+  };
+
+  const checkTeamMembership = async () => {
+    if (!user) return;
+
+    try {
+      const { data: userData } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) return;
+
+      const { data: jugadorData } = await supabase
+        .from('jugadores')
+        .select('id')
+        .eq('user_id', userData.id)
+        .single();
+
+      if (!jugadorData) return;
+
+      const { data: teamData } = await supabase
+        .from('jugador_equipos')
+        .select('equipo_id')
+        .eq('jugador_id', jugadorData.id)
+        .limit(1);
+
+      setIsInTeam(teamData && teamData.length > 0);
+    } catch (error) {
+      console.error('Error checking team membership:', error);
+    }
+  };
+
+  const checkResults = async () => {
+    if (!user) return;
+
+    try {
+      const { data: userData } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) return;
+
+      const { data: jugadorData } = await supabase
+        .from('jugadores')
+        .select('id')
+        .eq('user_id', userData.id)
+        .single();
+
+      if (!jugadorData) return;
+
+      const { data: resultsData } = await supabase
+        .from('analisis_videos')
+        .select('id')
+        .eq('jugador_id', jugadorData.id)
+        .limit(1);
+
+      setHasResults(resultsData && resultsData.length > 0);
+    } catch (error) {
+      console.error('Error checking results:', error);
+    }
+  };
 
   return (
     <Sidebar
@@ -67,8 +186,11 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     tooltip={item.title}
-                    onClick={() => onNavigate?.(item.section)}
-                    className="flex items-center gap-3 py-2 rounded-md transition-colors w-full"
+                    onClick={() => !item.disabled && onNavigate?.(item.section)}
+                    disabled={item.disabled}
+                    className={`flex items-center gap-3 py-2 rounded-md transition-colors w-full ${
+                      item.disabled ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                   >
                     <item.icon className="h-5 w-5 flex-shrink-0" />
                     {open && <span>{item.title}</span>}

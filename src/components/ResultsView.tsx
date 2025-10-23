@@ -72,6 +72,7 @@ export function ResultsView({ onBack, onViewAnalysis, userName, onLogout, isAthl
   const [sortBy, setSortBy] = useState('fecha_desc');
   const [deportes, setDeportes] = useState<any[]>([]);
   const [equipos, setEquipos] = useState<any[]>([]);
+  const [userRole, setUserRole] = useState<string>('');
   const { t } = useLanguage();
   const { toast } = useToast();
   const { features, database, sportDisplayName } = useSportConfigContext();
@@ -79,7 +80,32 @@ export function ResultsView({ onBack, onViewAnalysis, userName, onLogout, isAthl
   useEffect(() => {
     loadAnalisis();
     loadFilters();
+    loadUserRole();
   }, []);
+
+  const loadUserRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: userData, error } = await supabase
+        .from('usuarios')
+        .select('role')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user role:', error);
+        return;
+      }
+
+      if (userData?.role) {
+        setUserRole(userData.role);
+      }
+    } catch (error) {
+      console.error('Error in loadUserRole:', error);
+    }
+  };
 
   useEffect(() => {
     // En modo deporte individual, no establecer filtro por deporte ya que se filtra por deporte_id en la consulta
@@ -493,13 +519,15 @@ export function ResultsView({ onBack, onViewAnalysis, userName, onLogout, isAthl
                             <Eye className="h-4 w-4 mr-1" />
                             Ver
                           </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={() => handleDeleteAnalysis(analisis.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {userRole !== 'athlete' && (
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => handleDeleteAnalysis(analisis.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
