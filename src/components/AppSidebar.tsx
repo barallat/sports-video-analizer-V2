@@ -86,7 +86,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   tooltip="Información Legal"
-                  onClick={() => window.open('/legal', '_blank')}
+                  onClick={() => onNavigate('legal')}
                   className="flex items-center gap-3 py-2 rounded-md transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 >
                   <Shield className="h-4 w-4 flex-shrink-0" />

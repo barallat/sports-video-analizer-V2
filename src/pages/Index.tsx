@@ -25,6 +25,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { SportsManagement } from '@/components/SportsManagement';
 import { useSportConfigContext } from '@/contexts/SportConfigContext';
 import { usePageVisibility } from '@/hooks/usePageVisibility';
+import { LegalContent } from '@/pages/Legal';
 
 const Index = () => {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -275,6 +276,8 @@ const Index = () => {
     } else if (section === 'analysis') {
       // Limpiar estado de jugador cuando se accede a análisis desde dashboard
       setEditingPlayer(undefined);
+      setCurrentSection(section);
+    } else if (section === 'legal') {
       setCurrentSection(section);
     } else {
       setCurrentSection(section);
@@ -771,6 +774,8 @@ const Index = () => {
             onLogout={handleLogout}
           />
         ) : null;
+      case 'legal':
+        return <LegalContent />;
       default:
         return (
           <Dashboard 
